@@ -1,0 +1,4 @@
+vendor
+gin-bin*
+healthcheck-notifier
+healthcheck-notifier.exe

@@ -1,0 +1,22 @@
+{
+    "hipchat-proxy": "",
+    "smtp-server": "",
+    "apps": [
+        {
+            "name": "github",
+            "url": "https://github.com/",
+            "proxy": "",
+            "hipchat-room": "",
+            "hipchat-token": "",
+            "to-mail-address": "aaa@aaa.com"
+        },
+        {
+            "name": "google",
+            "url": "https://google.com/",
+            "proxy": "",
+            "hipchat-room": "",
+            "hipchat-token": "",
+            "to-mail-address": "aaa@aaa.com"
+        }
+    ]
+}

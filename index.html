@@ -1,0 +1,31 @@
+<html>
+<head>
+<title>Healthcheck Notifier</title>
+<meta http-equiv="refresh" content="60">
+<style type="text/css">
+th {padding: 10px}
+td {padding: 10px}
+</style>
+</head>
+<body>
+<h1>Healthcheck Notifier</h1>
+<table style="border-collapse: collapse;" border="1">
+<tr style="background-color: darkgray">
+  <th>app name</th>
+  <th>status</th>
+  <th>hipchat</th>
+  <th>mail</th>
+  <th>time</th>
+</tr>
+{{range .}}
+<tr>
+  <td><a style="text-decoration: none;" href="{{.URL}}" target="_blank">{{.Name}}</a></td>
+  <td style="color: white; background-color: {{.StatusCode | statusColor}}">{{.StatusCode}}</td>
+  <td><a href="">{{.HipchatRoom}}</a></td>
+  <td>{{.ToMailAddress}}</td>
+  <td>{{.Time}}</td>
+</tr>
+{{end}}
+</table>
+</body>
+</html>
