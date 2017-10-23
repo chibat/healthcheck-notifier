@@ -111,7 +111,7 @@ func (hn *HealthcheckNotifier) readTemplate() {
 		return "red"
 	}}
 
-	t, err := template.New("index.html").Funcs(funcMap).ParseFiles("index.html")
+	t, err := template.New("template.html").Funcs(funcMap).ParseFiles("template.html")
 	if err != nil {
 		panic(err)
 	}
