@@ -1,5 +1,8 @@
 # Healthcheck Notifier
 
+* HipChat
+* Mail(SMTP)
+
 ## Build
 
 ```
@@ -42,3 +45,7 @@ gin run healthcheck-notifier.go
 ```
 
 open http://localhost:3000/ in web browser
+
+### Fake SMTP
+
+refer http://nilhcem.com/FakeSMTP/

@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httputil"
+	"net/smtp"
 	"net/url"
 	"os"
 	"sync"
@@ -18,28 +19,45 @@ import (
 
 const templateLiveReloading = true
 
-type healthcheckNotifier struct {
-	HipchatProxy string `json:"hipchat-proxy"`
-	SMTPServer   string `json:"smtp-server"`
-	Apps         []app  `json:"apps"`
-	htmlTemplate *template.Template
+// HealthcheckNotifier HealthcheckNotifier
+type HealthcheckNotifier struct {
+	Cron             string `json:"cron"`
+	HipchatProxy     string `json:"hipchat-proxy"`
+	HipchatSubdomain string `json:"hipchat-subdomain"`
+	SMTPServer       string `json:"smtp-server"`
+	MailAddressFrom  string `json:"mail-address-from"`
+	Apps             []App  `json:"apps"`
+	htmlTemplate     *template.Template
+	HipChatClient    *http.Client
 }
 
-type app struct {
-	Name          string `json:"name"`
-	URL           string `json:"url"`
-	Proxy         string `json:"proxy"`
-	HipchatRoom   string `json:"hipchat-room"`
-	HipchatToken  string `json:"hipchat-token"`
-	ToMailAddress string `json:"to-mail-address"`
-	StatusCode    int
-	Raw           string
-	HTTPClient    *http.Client
-	Time          string
+// App target app
+type App struct {
+	Name                string   `json:"name"`
+	URL                 string   `json:"url"`
+	Proxy               string   `json:"proxy"`
+	HipchatRoom         string   `json:"hipchat-room"`
+	HipchatToken        string   `json:"hipchat-token"`
+	MailAddressToDown   []string `json:"mail-address-to-down"`
+	MailAddressToUp     []string `json:"mail-address-to-up"`
+	StatusCode          int
+	Raw                 string
+	HTTPClient          *http.Client
+	Time                string
+	HealthcheckNotifier *HealthcheckNotifier
 }
 
-func (hn *healthcheckNotifier) setupCron() {
+type hipchatRequest struct {
+	Notify        bool   `json:"notify"`
+	MessageFormat string `json:"message_format"`
+	Color         string `json:"color"`
+	Message       string `json:"message"`
+}
+
+// Init init
+func (hn *HealthcheckNotifier) Init() {
 	for i := 0; i < len(hn.Apps); i++ {
+		hn.Apps[i].HealthcheckNotifier = hn
 		p := hn.Apps[i].Proxy
 		if p != "" {
 			proxyURL, err := url.Parse(p)
@@ -52,25 +70,37 @@ func (hn *healthcheckNotifier) setupCron() {
 		}
 	}
 
+	if hn.HipchatProxy != "" {
+		proxyURL, err := url.Parse(hn.HipchatProxy)
+		if err != nil {
+			panic(err)
+		}
+		hn.HipChatClient = &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+	} else {
+		hn.HipChatClient = http.DefaultClient
+	}
+
 	c := cron.New()
-	c.AddFunc("*/30 * * * * *", hn.cmd)
+	c.AddFunc(hn.Cron, hn.cmd)
 	c.Start()
 }
 
-func (hn *healthcheckNotifier) startServer() {
+// StartServer start server
+func (hn *HealthcheckNotifier) StartServer() {
 	hn.readTemplate()
 	var httpServer http.Server
 	http.HandleFunc("/", hn.handler)
-	port := os.Getenv("PORT") // for cloud foundry
+	http.HandleFunc("/test-internal-server-error", testHandlerInternalServerError) // for test
+	port := os.Getenv("PORT")                                                      // for cloud foundry
 	if port == "" {
 		port = "18888"
 	}
 	log.Println("start http listening : ", port)
 	httpServer.Addr = ":" + port
-	log.Println(httpServer.ListenAndServe())
+	httpServer.ListenAndServe()
 }
 
-func (hn *healthcheckNotifier) readTemplate() {
+func (hn *HealthcheckNotifier) readTemplate() {
 
 	funcMap := template.FuncMap{"statusColor": func(s int) string {
 		if s == 200 {
@@ -80,8 +110,6 @@ func (hn *healthcheckNotifier) readTemplate() {
 		}
 		return "red"
 	}}
-	if funcMap != nil {
-	}
 
 	t, err := template.New("index.html").Funcs(funcMap).ParseFiles("index.html")
 	if err != nil {
@@ -90,17 +118,16 @@ func (hn *healthcheckNotifier) readTemplate() {
 	hn.htmlTemplate = t
 }
 
-func (hn *healthcheckNotifier) readConfig() {
+// ReadConfig read config
+func (hn *HealthcheckNotifier) ReadConfig() {
 	file, err := ioutil.ReadFile("config.json")
 	if err != nil {
 		panic(err)
 	}
 	json.Unmarshal(file, hn)
-	fmt.Println(hn)
 }
 
-func (hn *healthcheckNotifier) cmd() {
-	fmt.Println("I am runnning task.", time.Now())
+func (hn *HealthcheckNotifier) cmd() {
 
 	var wg sync.WaitGroup
 
@@ -115,53 +142,120 @@ func (hn *healthcheckNotifier) cmd() {
 	wg.Wait()
 }
 
-func (hn *healthcheckNotifier) handler(w http.ResponseWriter, r *http.Request) {
-	dump, err := httputil.DumpRequest(r, true)
-	if err != nil {
-		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-		return
-	}
-	fmt.Println(string(dump))
-
+func (hn *HealthcheckNotifier) handler(w http.ResponseWriter, r *http.Request) {
 	if templateLiveReloading {
 		hn.readTemplate()
 	}
 	hn.htmlTemplate.Execute(w, hn.Apps)
 }
 
-func (app *app) healthcheck() {
-	resp, err := app.HTTPClient.Get(app.URL)
-	if err != nil || resp.StatusCode != 200 {
-	}
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	app.Raw = string(bodyBytes)
+var testHandlerInternalServerErrorFlag = true
 
-	if app.StatusCode != 0 {
-		if app.StatusCode != 200 && resp.StatusCode == 200 {
-			// up
-			hipchat(app)
-			mail(app)
-		} else if app.StatusCode == 200 && resp.StatusCode != 200 {
-			// down
-			hipchat(app)
-			mail(app)
+func testHandlerInternalServerError(w http.ResponseWriter, r *http.Request) {
+	if testHandlerInternalServerErrorFlag {
+		http.Error(w, "test error", http.StatusInternalServerError)
+	}
+	testHandlerInternalServerErrorFlag = !testHandlerInternalServerErrorFlag
+}
+
+func (a *App) healthcheck() {
+	resp, err := a.HTTPClient.Get(a.URL)
+	var statusCode int
+	if err != nil {
+		statusCode = -1
+	} else {
+		statusCode = resp.StatusCode
+	}
+	// bodyBytes, err := ioutil.ReadAll(resp.Body)
+	// a.Raw = string(bodyBytes)
+
+	message := "healthcheck error"
+	if statusCode == 200 {
+		message = "healthcheck recovered"
+	}
+
+	body := fmt.Sprintf(`
+Message: %s
+App: %s
+Status Code: %d
+URL: %s`, message, a.Name, statusCode, a.URL)
+
+	if (a.StatusCode != 200 && a.StatusCode != 0 && statusCode == 200) || ((a.StatusCode == 200 || a.StatusCode == 0) && statusCode != 200) {
+		a.NotifyWithHipchat(body, statusCode)
+		a.NotifyWithMail(body, statusCode)
+	}
+
+	a.StatusCode = statusCode
+	a.Time = time.Now().Format(time.RFC3339)
+	log.Printf("%s: %d", a.Name, statusCode)
+}
+
+// NotifyWithHipchat notify with hipchat
+func (a *App) NotifyWithHipchat(body string, statusCode int) {
+	if a.HipchatRoom == "" || a.HipchatToken == "" {
+		return
+	}
+
+	url := "https://api.hipchat.com/v2/room/" + a.HipchatRoom + "/notification?auth_token=" + a.HipchatToken
+
+	color := "red"
+	if statusCode == 200 {
+		color = "green"
+	}
+	input, err := json.Marshal(&hipchatRequest{Notify: true, MessageFormat: "text", Color: color, Message: "@all\n" + body})
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	resp, err := a.HealthcheckNotifier.HipChatClient.Post(url, "application/json", bytes.NewBuffer(input))
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	log.Printf("%s HipChat: %d", a.Name, resp.StatusCode)
+}
+
+// NotifyWithMail notify with mail
+func (a *App) NotifyWithMail(body string, statusCode int) {
+	from := a.HealthcheckNotifier.MailAddressFrom
+	server := a.HealthcheckNotifier.SMTPServer
+	to := a.MailAddressToDown
+	subject := "[DOWN] " + a.Name
+	if statusCode == 200 {
+		to = a.MailAddressToUp
+		subject = "[UP] " + a.Name
+	}
+	if server == "" || from == "" || len(to) == 0 {
+		return
+	}
+
+	msg := "From: " + from + "\r\n" +
+		"To: " + toLine(to) + "\r\n" +
+		"Subject: " + subject + "\r\n\r\n" +
+		body + "\r\n"
+
+	err := smtp.SendMail(server, nil, from, to, []byte(msg))
+	if err != nil {
+		log.Print(err)
+		return
+	}
+}
+
+func toLine(array []string) string {
+	var ret string
+	for i, s := range array {
+		if i == 0 {
+			ret = s
+		} else {
+			ret = ret + ", " + s
 		}
 	}
-
-	app.StatusCode = resp.StatusCode
-	app.Time = time.Now().String()
-	log.Println(resp.StatusCode)
-}
-
-func hipchat(a *app) {
-}
-
-func mail(a *app) {
+	return ret
 }
 
 func main() {
-	var hn healthcheckNotifier
-	hn.readConfig()
-	hn.setupCron()
-	hn.startServer()
+	var notifier HealthcheckNotifier
+	notifier.ReadConfig()
+	notifier.Init()
+	notifier.StartServer()
 }

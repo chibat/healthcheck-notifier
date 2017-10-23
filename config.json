@@ -1,22 +1,36 @@
 {
+    "cron": "*/30 * * * * *",
     "hipchat-proxy": "",
-    "smtp-server": "",
+    "hipchat-subdomain": "hipchat-subdomain",
+    "smtp-server": "localhost:25",
+    "mail-address-from": "from@example.com",
     "apps": [
         {
-            "name": "github",
-            "url": "https://github.com/",
+            "name": "app-normal",
+            "url": "http://localhost:18888/",
             "proxy": "",
-            "hipchat-room": "",
+            "hipchat-room": "1234567",
             "hipchat-token": "",
-            "to-mail-address": "aaa@aaa.com"
+            "mail-address-to-down": ["to1@example.com", "to2@example.com"],
+            "mail-address-to-up": ["to1@example.com", "to2@example.com"]
         },
         {
-            "name": "google",
-            "url": "https://google.com/",
+            "name": "app-wrong-port",
+            "url": "http://localhost:28888/",
             "proxy": "",
-            "hipchat-room": "",
+            "hipchat-room": "1234567",
             "hipchat-token": "",
-            "to-mail-address": "aaa@aaa.com"
+            "mail-address-to-down": ["to1@example.com", "to2@example.com"],
+            "mail-address-to-up": ["to1@example.com", "to2@example.com"]
+        },
+        {
+            "name": "app-500",
+            "url": "http://localhost:18888/test-internal-server-error",
+            "proxy": "",
+            "hipchat-room": "1234567",
+            "hipchat-token": "",
+            "mail-address-to-down": ["to1@example.com", "to2@example.com"],
+            "mail-address-to-up": ["to1@example.com", "to2@example.com"]
         }
     ]
 }
