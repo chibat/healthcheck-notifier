@@ -111,7 +111,8 @@ func (hn *HealthcheckNotifier) readTemplate() {
 		return "red"
 	}}
 
-	t, err := template.New("template.html").Funcs(funcMap).ParseFiles("template.html")
+	// t, err := template.New("template.html").Funcs(funcMap).ParseFiles("template-debug.html") // for html debug
+	t, err := template.New("template").Funcs(funcMap).Parse(htmlTemplate)
 	if err != nil {
 		panic(err)
 	}
@@ -259,3 +260,39 @@ func main() {
 	notifier.Init()
 	notifier.StartServer()
 }
+
+const htmlTemplate = `
+<html>
+<head>
+<title>Healthcheck Notifier</title>
+<meta http-equiv="refresh" content="60">
+<style type="text/css">
+th {padding: 10px}
+td {padding: 10px}
+</style>
+</head>
+<body>
+<h1>Healthcheck Notifier</h1>
+<table style="border-collapse: collapse;" border="1">
+<tr style="background-color: darkgray">
+  <th>app name</th>
+  <th>status</th>
+  <th>hipchat</th>
+  <th>mail(down)</th>
+  <th>mail(up)</th>
+  <th>time</th>
+</tr>
+{{range .}}
+<tr>
+  <td><a style="text-decoration: none;" href="{{.URL}}" target="_blank">{{.Name}}</a></td>
+  <td style="color: white; background-color: {{.StatusCode | statusColor}}">{{.StatusCode}}</td>
+  <td><a href="https://{{.HealthcheckNotifier.HipchatSubdomain}}.hipchat.com/chat/room/{{.HipchatRoom}}" target="_blank">{{.HipchatRoom}}</a></td>
+  <td>{{.MailAddressToDown}}</td>
+  <td>{{.MailAddressToUp}}</td>
+  <td>{{.Time}}</td>
+</tr>
+{{end}}
+</table>
+</body>
+</html>
+`
