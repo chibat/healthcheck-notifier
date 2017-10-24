@@ -97,7 +97,6 @@ func (hn *HealthcheckNotifier) StartServer() {
 	http.HandleFunc("/test-internal-server-error", testHandlerInternalServerError) // for test
 	log.Println("start http listening : ", hn.Port)
 	httpServer.Addr = fmt.Sprint(":", hn.Port)
-	log.Println(httpServer.Addr)
 	httpServer.ListenAndServe()
 }
 
