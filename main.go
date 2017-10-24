@@ -11,17 +11,21 @@ import (
 	"net/smtp"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/robfig/cron"
 )
 
-const templateLiveReloading = true
+const configFileName = "config.json"
+
+// const templateLiveReloading = true
 
 // HealthcheckNotifier HealthcheckNotifier
 type HealthcheckNotifier struct {
 	Cron             string `json:"cron"`
+	Port             int    `json:"port"`
 	HipchatProxy     string `json:"hipchat-proxy"`
 	HipchatSubdomain string `json:"hipchat-subdomain"`
 	SMTPServer       string `json:"smtp-server"`
@@ -91,12 +95,9 @@ func (hn *HealthcheckNotifier) StartServer() {
 	var httpServer http.Server
 	http.HandleFunc("/", hn.handler)
 	http.HandleFunc("/test-internal-server-error", testHandlerInternalServerError) // for test
-	port := os.Getenv("PORT")                                                      // for cloud foundry
-	if port == "" {
-		port = "18888"
-	}
-	log.Println("start http listening : ", port)
-	httpServer.Addr = ":" + port
+	log.Println("start http listening : ", hn.Port)
+	httpServer.Addr = fmt.Sprint(":", hn.Port)
+	log.Println(httpServer.Addr)
 	httpServer.ListenAndServe()
 }
 
@@ -121,11 +122,19 @@ func (hn *HealthcheckNotifier) readTemplate() {
 
 // ReadConfig read config
 func (hn *HealthcheckNotifier) ReadConfig() {
-	file, err := ioutil.ReadFile("config.json")
+	if !exists(configFileName) {
+		ioutil.WriteFile(configFileName, []byte(configJSON), 0600)
+	}
+	file, err := ioutil.ReadFile(configFileName)
 	if err != nil {
-		log.Fatalln("Can not read 'config.json. Create readable 'config.json'. Example is https://github.com/chibat/healthcheck-notifier/blob/master/config.json .")
+		panic(err)
 	}
 	json.Unmarshal(file, hn)
+
+	port := os.Getenv("PORT") // for cloud foundry
+	if port != "" {
+		hn.Port, _ = strconv.Atoi(port)
+	}
 }
 
 func (hn *HealthcheckNotifier) cmd() {
@@ -144,9 +153,9 @@ func (hn *HealthcheckNotifier) cmd() {
 }
 
 func (hn *HealthcheckNotifier) handler(w http.ResponseWriter, r *http.Request) {
-	if templateLiveReloading {
-		hn.readTemplate()
-	}
+	// if templateLiveReloading {
+	// 	hn.readTemplate()
+	// }
 	hn.htmlTemplate.Execute(w, hn.Apps)
 }
 
@@ -254,6 +263,11 @@ func toLine(array []string) string {
 	return ret
 }
 
+func exists(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil
+}
+
 func main() {
 	var notifier HealthcheckNotifier
 	notifier.ReadConfig()
@@ -296,4 +310,26 @@ a {text-decoration: none}
 </table>
 </body>
 </html>
+`
+
+const configJSON = `
+{
+    "cron": "*/10 * * * * *",
+    "port": 18888,
+    "hipchat-proxy": "",
+    "hipchat-subdomain": "hipchat-subdomain",
+    "smtp-server": "localhost:25",
+    "mail-address-from": "from@example.com",
+    "apps": [
+        {
+            "name": "self",
+            "url": "http://localhost:18888/",
+            "proxy": "",
+            "hipchat-room": "1234567",
+            "hipchat-token": "",
+            "mail-address-to-down": ["to1@example.com", "to2@example.com"],
+            "mail-address-to-up": ["to1@example.com", "to2@example.com"]
+        }
+    ]
+}
 `
