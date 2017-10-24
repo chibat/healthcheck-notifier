@@ -123,7 +123,7 @@ func (hn *HealthcheckNotifier) readTemplate() {
 func (hn *HealthcheckNotifier) ReadConfig() {
 	file, err := ioutil.ReadFile("config.json")
 	if err != nil {
-		panic(err)
+		log.Fatalln("Can not read 'config.json. Create readable 'config.json'. Example is https://github.com/chibat/healthcheck-notifier/blob/master/config.json .")
 	}
 	json.Unmarshal(file, hn)
 }
@@ -269,6 +269,7 @@ const htmlTemplate = `
 <style type="text/css">
 th {padding: 10px}
 td {padding: 10px}
+a {text-decoration: none}
 </style>
 </head>
 <body>
@@ -284,7 +285,7 @@ td {padding: 10px}
 </tr>
 {{range .}}
 <tr>
-  <td><a style="text-decoration: none;" href="{{.URL}}" target="_blank">{{.Name}}</a></td>
+  <td><a href="{{.URL}}" target="_blank">{{.Name}}</a></td>
   <td style="color: white; background-color: {{.StatusCode | statusColor}}">{{.StatusCode}}</td>
   <td><a href="https://{{.HealthcheckNotifier.HipchatSubdomain}}.hipchat.com/chat/room/{{.HipchatRoom}}" target="_blank">{{.HipchatRoom}}</a></td>
   <td>{{.MailAddressToDown}}</td>

@@ -27,7 +27,7 @@ open http://localhost:18888/ in web browser
 ## Debug
 
 ```
-$ go run healthcheck-notifier.go
+$ go run main.go
 ```
 
 open http://localhost:18888/ in web browser
@@ -41,7 +41,7 @@ go get github.com/codegangsta/gin
 
 Run
 ```
-gin run healthcheck-notifier.go
+gin run main.go
 ```
 
 open http://localhost:3000/ in web browser
