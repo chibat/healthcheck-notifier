@@ -24,8 +24,6 @@ Open http://localhost:18888/ in web browser.
 screenshot  
 ![monitor](./img/monitor.png)
 
-![hc](./img/hc.png)
-
 
 ## Configuration
 
@@ -69,8 +67,8 @@ screenshot
 
 ## Specification
 
-* If HipChat settings is blank, does not notify by HipChat.
-* If Mail settings is blank, does not notify by Mail.
+* If HipChat settings are blank, does not notify with HipChat.
+* If Mail settings are blank, does not notify with Mail.
 * If this gets healthcheck error of target applications, notifies. If this continues to get an error, does not notify.
 * If this gets healthcheck success after healthcheck error, notifies.
 
