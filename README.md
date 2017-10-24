@@ -24,6 +24,9 @@ Open http://localhost:18888/ in web browser.
 screenshot  
 ![monitor](./img/monitor.png)
 
+![hc](./img/hc.png)
+
+
 ## Configuration
 
 'Healthcheck Notifier' generates the configuration file(config.json) in first start up.
