@@ -2,7 +2,7 @@
 
 'Healthcheck Notifier' is a simple healthchecker and notifier for web application.
 
-If this gets healthcheck error of target applications, this notifies to hipchat and sends mails to specified mail addresses.
+If this gets healthcheck error of target applications, this tool notifies to hipchat and sends mails to specified mail addresses.
 
 ## Quick Start
 
@@ -67,8 +67,6 @@ screenshot
 
 ## Specification
 
-* If HipChat settings are blank, does not notify with HipChat.
-* If Mail settings are blank, does not notify with Mail.
-* If this gets healthcheck error of target applications, notifies. If this continues to get an error, does not notify.
-* If this gets healthcheck success after healthcheck error, notifies.
+* If this tool gets healthcheck error of target applications, notifies. If this tool continues to get an error, does not notify.
+* If this tool gets healthcheck success after healthcheck error, notifies.
 
